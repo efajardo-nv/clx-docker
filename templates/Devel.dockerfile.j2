@@ -1,0 +1,57 @@
+# RAPIDS CLX Dockerfile for {{ os }} "devel" image
+#
+# RAPIDS is built from-source and installed in the base conda environment. The
+# sources and toolchains to build RAPIDS are included in this image. RAPIDS
+# jupyter notebooks are also provided, as well as jupyterlab and all the
+# dependencies required to run them.
+#
+# Copyright (c) {{ now.year }}, NVIDIA CORPORATION.
+
+# ARG CUDA_VER={{ DEFAULT_CUDA_VERSION }}
+# ARG LINUX_VER={{ os }}
+# ARG PYTHON_VER={{ DEFAULT_PYTHON_VERSION }}
+# ARG RAPIDS_VER={{ RAPIDS_VERSION }}
+
+ARG CUDA_VER={{ DEFAULT_CUDA_VERSION }}
+ARG LINUX_VER={{ os }}
+ARG RAPIDS_VER={{ RAPIDS_VERSION }}
+ARG FROM_IMAGE=gpuci/miniconda-cuda
+
+# ARG FROM_IMAGE=rapidsaistaging/rapidsai-dev-nightly-staging
+
+# FROM ${FROM_IMAGE}:${RAPIDS_VER}-cuda${CUDA_VER}-devel-${LINUX_VER}-py${PYTHON_VER}
+FROM ${FROM_IMAGE}:${CUDA_VER}-devel-${LINUX_VER}
+
+ARG CUDA_VER
+ARG PYTHON_VER={{ DEFAULT_PYTHON_VERSION }}
+
+ARG PARALLEL_LEVEL=16
+
+ENV RAPIDS_DIR=/rapids
+
+{# Clone CLX #}
+RUN mkdir -p ${RAPIDS_DIR} && \
+    cd ${RAPIDS_DIR} && \
+    git clone https://github.com/rapidsai/clx.git
+
+{# Build CLX environment #}
+RUN conda env create --name rapids --file ${RAPIDS_DIR}/clx/conda/environments/clx_dev_cuda${CUDA_VER}.yml python=${PYTHON_VER}
+
+{# Build CLX #}
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/conda/envs/rapids/lib
+RUN cd ${RAPIDS_DIR}/clx && \
+  source activate rapids && \
+  ./build.sh
+
+{# Cleaup conda and set ACLs for all users #}
+{% include 'partials/cleanup-chmod.dockerfile.j2' %}
+
+WORKDIR ${RAPIDS_DIR}
+
+COPY .run_in_rapids.sh /.run_in_rapids
+RUN chmod +x /usr/bin/tini && \
+    echo "source activate rapids" >> ~/.bashrc
+ENTRYPOINT [ "/usr/bin/tini", "--", "/.run_in_rapids" ]
+
+{# Set the default command to pass to the ENTRYPOINT if no command was given #}
+CMD [ "/bin/bash" ]

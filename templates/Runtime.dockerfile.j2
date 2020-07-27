@@ -1,0 +1,74 @@
+# RAPIDS Dockerfile for {{ os }} "runtime" image
+#
+# runtime: RAPIDS is installed from published conda packages to the 'rapids'
+# conda environment. RAPIDS jupyter notebooks are also provided, as well as
+# jupyterlab and all the dependencies required to run them.
+#
+# Copyright (c) {{ now.year }}, NVIDIA CORPORATION.
+
+ARG CUDA_VER={{ DEFAULT_CUDA_VERSION }}
+ARG LINUX_VER={{ os }}
+ARG RAPIDS_VER={{ RAPIDS_VERSION }}
+ARG FROM_IMAGE=gpuci/miniconda-cuda
+
+FROM ${FROM_IMAGE}:${CUDA_VER}-devel-${LINUX_VER}
+
+ARG CUDA_VER
+ARG PYTHON_VER={{ DEFAULT_PYTHON_VERSION }}
+
+{# base/runtime install specs #}
+ARG DASK_XGBOOST_VER=0.2*
+ARG RAPIDS_VER={{ RAPIDS_VERSION }}*
+
+ENV RAPIDS_DIR=/rapids
+{% if "ubuntu" in os %}
+ENV LD_LIBRARY_PATH=/opt/conda/envs/rapids/lib:${LD_LIBRARY_PATH}
+{% endif %}
+
+{# Clone CLX #}
+RUN mkdir -p ${RAPIDS_DIR} && \
+    cd ${RAPIDS_DIR} && \
+    git clone https://github.com/rapidsai/clx.git
+
+{# Copy files needed by RAPIDS and 3rd parties for builds, test, and runtime. #}
+RUN mkdir -p ${RAPIDS_DIR}/utils {{ "${GCC7_DIR}/lib64" if "centos" in os }}
+RUN mkdir -p ${RAPIDS_DIR}/notebooks {{ "${GCC7_DIR}/lib64" if "centos" in os }}
+COPY start_jupyter.sh nbtest.sh nbtestlog2junitxml.py ${RAPIDS_DIR}/utils/
+COPY notebooks/ ${RAPIDS_DIR}/notebooks/
+COPY gpuci_conda_retry .condarc /opt/conda/bin/
+COPY .condarc /opt/conda/
+
+{% if "centos" in os %}
+{# Add compatible libm #}
+COPY libm.so.6 ${GCC7_DIR}/lib64
+{% endif %}
+
+RUN conda create -n rapids
+
+{# Install the notebook dependencies and the notebook repo #}
+{% include 'partials/env_debug.dockerfile.j2' %}
+
+RUN source activate rapids && \
+    gpuci_conda_retry install -c pytorch python=${PYTHON_VER} clx=${RAPIDS_VER} rapids=${RAPIDS_VER} cudatoolkit=${CUDA_VER} jupyterlab
+
+WORKDIR ${RAPIDS_DIR}/clx/notebooks
+{# Jupyter notebook port #}
+EXPOSE 8888
+{# Dask Scheduler Bokeh port #}
+EXPOSE 8787
+EXPOSE 8786
+
+{# Change the entrypoint to start the Jupyter server prior to running commands #}
+COPY .start_jupyter_run_in_rapids.sh /.run_in_rapids
+
+{# Cleaup conda and set ACLs for all users #}
+{% include 'partials/cleanup-chmod.dockerfile.j2' %}
+
+WORKDIR ${RAPIDS_DIR}
+
+RUN chmod +x /usr/bin/tini && \
+    echo "source activate rapids" >> ~/.bashrc
+ENTRYPOINT [ "/usr/bin/tini", "--", "/.run_in_rapids" ]
+
+{# Set the default command to pass to the ENTRYPOINT if no command was given #}
+CMD [ "/bin/bash" ]
