@@ -36,15 +36,32 @@ COPY libm.so.6 ${GCC7_DIR}/lib64
 
 RUN conda create -n rapids
 
+RUN source activate rapids && gpuci_conda_retry install -c pytorch -c gwerbin \
+    "clx=${RAPIDS_VER}" \
+    "numpy>=1.17.3,<1.19.0" \
+    "python-confluent-kafka" \
+    "transformers" \
+    "seqeval" \
+    "python-whois" \
+    "seaborn" \
+    "requests" \
+    "s3fs" \
+    "ipython" \
+    "ipywidgets" \
+    "jupyterlab" \
+    "matplotlib"
+
+RUN source activate rapids \
+    && pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps \
+    && pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps \
+    && pip install "git+https://github.com/rapidsai/cudatashader.git"
+
 
 RUN source activate rapids \
   && env \
   && conda info \
   && conda config --show-sources \
   && conda list --show-channel-urls
-RUN source activate rapids && \
-    gpuci_conda_retry install -c pytorch python=${PYTHON_VER} clx=${RAPIDS_VER} rapids=${RAPIDS_VER} cudatoolkit=${CUDA_VER} jupyterlab
-
 WORKDIR ${RAPIDS_DIR}/clx/notebooks
 EXPOSE 8888
 EXPOSE 8787
