@@ -35,9 +35,6 @@ RUN source activate rapids \
   && conda info \
   && conda config --show-sources \
   && conda list --show-channel-urls
-# RUN gpuci_conda_retry install -y -n rapids \
-#  clx=${RAPIDS_VER}
-
 RUN source activate rapids && gpuci_conda_retry install -c pytorch python=${PYTHON_VER} clx=${RAPIDS_VER} rapids=${RAPIDS_VER} cudatoolkit=${CUDA_VER} 
 
 

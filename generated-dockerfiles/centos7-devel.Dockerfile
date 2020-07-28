@@ -7,19 +7,11 @@
 #
 # Copyright (c) 2020, NVIDIA CORPORATION.
 
-# ARG CUDA_VER=10.1
-# ARG LINUX_VER=centos7
-# ARG PYTHON_VER=3.7
-# ARG RAPIDS_VER=0.15
-
 ARG CUDA_VER=10.1
 ARG LINUX_VER=centos7
 ARG RAPIDS_VER=0.15
 ARG FROM_IMAGE=gpuci/miniconda-cuda
 
-# ARG FROM_IMAGE=rapidsaistaging/rapidsai-dev-nightly-staging
-
-# FROM ${FROM_IMAGE}:${RAPIDS_VER}-cuda${CUDA_VER}-devel-${LINUX_VER}-py${PYTHON_VER}
 FROM ${FROM_IMAGE}:${CUDA_VER}-devel-${LINUX_VER}
 
 ARG CUDA_VER

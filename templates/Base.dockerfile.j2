@@ -39,9 +39,6 @@ RUN conda create -n rapids
 
 {% include 'partials/env_debug.dockerfile.j2' %}
 
-# RUN gpuci_conda_retry install -y -n rapids \
-#  clx=${RAPIDS_VER}
-
 RUN source activate rapids && gpuci_conda_retry install -c pytorch python=${PYTHON_VER} clx=${RAPIDS_VER} rapids=${RAPIDS_VER} cudatoolkit=${CUDA_VER} 
 
 {# Cleaup conda and set ACLs for all users #}
